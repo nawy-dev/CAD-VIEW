@@ -1,0 +1,18 @@
+# بدون "/" في النهاية عمدًا، ليشمل أيضًا الرابط الرمزي
+node_modules
+dist
+coverage
+*.log
+.DS_Store
+.vite
+
+# Capacitor / Android
+android/app/build
+android/build
+android/.gradle
+android/local.properties
+android/.idea
+android/app/src/main/assets/public
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins
