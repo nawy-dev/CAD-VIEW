@@ -17,13 +17,20 @@
     "e2e": "node scripts/e2e.mjs",
     "icons": "node scripts/make-icons.mjs",
     "sample": "tsx scripts/make-sample-dxf.ts",
-    "verify": "npm run typecheck && npm run test && vite build && npm run e2e"
+    "verify": "npm run typecheck && npm run test && vite build && npm run e2e",
+    "cap:add": "cap add android",
+    "cap:sync": "vite build && cap sync android",
+    "cap:open": "cap open android",
+    "cap:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

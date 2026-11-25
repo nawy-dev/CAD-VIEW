@@ -59,7 +59,7 @@ tests/          اختبارات Vitest
 - يُحوَّل DWG إلى نفس نموذج الكيانات الداخلي، فيعمل بقية العارض بدون تغيير
 - **حالة الصيغة**: تُعرض رسالة واضحة "DWG غير مدعوم بعد" إلى أن يُضاف الـ WASM
 
-### المرحلة 6 — تغليف Capacitor لأندرويد (بعد استقرار الـ PWA)
+### المرحلة 6 — تغليف Capacitor لأندرويد (الإعداد جاهز، لم يُشغَّل cap add بعد — راجع ANDROID.md)
 - `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`
 - `capacitor.config.ts` مع `webDir: dist`
 - فتح الملفات من نظام الملفات عبر الـ file picker
