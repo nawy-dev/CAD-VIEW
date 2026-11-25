@@ -3,6 +3,7 @@ export type LoadErrorCode =
   | 'NOT_DXF'
   | 'BINARY_DXF'
   | 'DWG_UNSUPPORTED'
+  | 'DWG_ENGINE'
   | 'TOO_LARGE'
   | 'PARSE';
 

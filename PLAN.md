@@ -53,11 +53,12 @@ tests/          اختبارات Vitest
 - اختبار حقيقي في متصفح (Playwright): فتح ملف، تكبير، إخفاء طبقة، أوفلاين
 - commit و push على GitHub
 
-### المرحلة 5 — DWG
+### المرحلة 5 — DWG ✅
 - DWG صيغة مغلقة؛ العرض الحقيقي يحتاج LibreDWG مبنيًا كـ WASM
 - يوضع ملف الـ WASM داخل `public/vendor/libredwg/` ويُحمَّل محليًا (بدون CDN)
 - يُحوَّل DWG إلى نفس نموذج الكيانات الداخلي، فيعمل بقية العارض بدون تغيير
-- **حالة الصيغة**: تُعرض رسالة واضحة "DWG غير مدعوم بعد" إلى أن يُضاف الـ WASM
+- **منجز**: LibreDWG WASM في `public/vendor/libredwg/` (مُعدَّل ليعمل بدون unsafe-eval)، التحويل DWG→DXF في `src/loader/dwg.ts`، مع اختبارات ملفات حقيقية.
+- **لاحقًا**: نقل التحويل إلى Web Worker؛ ترخيص GPL-3 للمحرك.
 
 ### المرحلة 6 — تغليف Capacitor لأندرويد (الإعداد جاهز، لم يُشغَّل cap add بعد — راجع ANDROID.md)
 - `@capacitor/core`, `@capacitor/cli`, `@capacitor/android`

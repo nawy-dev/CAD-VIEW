@@ -17,7 +17,7 @@ import type { Theme } from './core/render/aci';
 import type { RecentEntry } from './core/storage/recent';
 import { formatBytes, formatCount } from './i18n/format';
 import { isLang, strings, type Lang } from './i18n/strings';
-import { openDrawing, toErrorInfo, type Drawing, type ErrorInfo } from './loader/openDrawing';
+import { openDrawingFile, toErrorInfo, type Drawing, type ErrorInfo } from './loader/openDrawing';
 import { readPref, writePref } from './state/prefs';
 import { recentFiles } from './state/services';
 
@@ -103,7 +103,8 @@ export function App() {
         const data = await read();
         await nextPaint();
         if (mine !== token.current) return;
-        const next = openDrawing(nameOverride.current ?? name, data);
+        const next = await openDrawingFile(nameOverride.current ?? name, data);
+        if (mine !== token.current) return;
         nameOverride.current = null;
         setDrawing(next);
         setHidden(new Set(next.scene.layers.filter((l) => l.hiddenByDefault).map((l) => l.name)));

@@ -63,7 +63,7 @@ const ar: Strings = {
   switchLang: 'English',
   loading: 'جارٍ فتح الملف…',
   dropHint: 'اسحب ملف DXF وأفلته هنا، أو اضغط «فتح ملف»',
-  formatsHint: 'صيغة DXF مدعومة الآن، ودعم DWG قيد الإضافة.',
+  formatsHint: 'يدعم ملفات DXF وDWG ويعمل بدون إنترنت.',
   online: 'متصل',
   offline: 'بدون إنترنت — التطبيق يعمل محليًا',
   dismiss: 'إخفاء',
@@ -77,6 +77,7 @@ const ar: Strings = {
     BINARY_DXF: () => 'ملفات DXF الثنائية غير مدعومة بعد. صدّر الملف بصيغة DXF نصية (ASCII).',
     DWG_UNSUPPORTED: (detail) =>
       `ملفات DWG غير مدعومة بعد${detail ? ` (الإصدار: ${detail})` : ''}. صدّر الرسم بصيغة DXF من AutoCAD أو من أي محوّل، ثم افتحه هنا.`,
+    DWG_ENGINE: () => 'تعذّر تحميل محرك قراءة DWG. أعد تحميل التطبيق وحاول مجددًا، أو افتح الرسم بصيغة DXF.',
     TOO_LARGE: () => 'الملف أكبر من الحد المسموح (150 ميجابايت).',
     PARSE: () => 'تعذّر تحليل الملف، وقد يكون تالفًا.',
     READ: () => 'تعذّرت قراءة الملف.',
@@ -108,7 +109,7 @@ const en: Strings = {
   switchLang: 'العربية',
   loading: 'Opening file…',
   dropHint: 'Drop a DXF file here, or press “Open file”',
-  formatsHint: 'DXF is supported now. DWG support is coming.',
+  formatsHint: 'Opens DXF and DWG files, fully offline.',
   online: 'Online',
   offline: 'Offline — the app runs locally',
   dismiss: 'Dismiss',
@@ -122,6 +123,7 @@ const en: Strings = {
     BINARY_DXF: () => 'Binary DXF files are not supported yet. Export the file as ASCII DXF.',
     DWG_UNSUPPORTED: (detail) =>
       `DWG files are not supported yet${detail ? ` (version: ${detail})` : ''}. Export the drawing as DXF from AutoCAD or any converter, then open it here.`,
+    DWG_ENGINE: () => 'The DWG engine failed to load. Reload the app and try again, or open the drawing as DXF.',
     TOO_LARGE: () => 'The file is larger than the allowed limit (150 MB).',
     PARSE: () => 'The file could not be parsed. It may be corrupted.',
     READ: () => 'The file could not be read.',

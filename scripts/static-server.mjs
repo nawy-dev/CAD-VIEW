@@ -12,6 +12,7 @@ const TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.dxf': 'text/plain; charset=utf-8',
+  '.wasm': 'application/wasm',
 };
 
 /** يشغّل السيرفر على منفذ حر ويعيد { server, port, url }. */

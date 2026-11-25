@@ -195,6 +195,14 @@ async function act(page, fn) {
   await act(page, () => page.getByTestId('file-input').setInputFiles(sample));
   check((await page.getByTestId('file-name').textContent()) === 'sample.dxf', 'فتح ملف من منتقي الملفات');
 
+  // DWG حقيقي (AutoCAD 2013) يُحوَّل محليًا بمحرك WASM ويُعرض
+  await act(page, () =>
+    page.getByTestId('file-input').setInputFiles(new URL('../tests/fixtures/example-2013.dwg', import.meta.url).pathname),
+  );
+  await page.waitForFunction(() => document.querySelector('[data-testid=file-name]')?.textContent === 'example-2013.dwg', null, { timeout: 30000 });
+  await page.waitForFunction(() => Number(document.querySelector('[data-testid=viewport]')?.dataset.drawn ?? 0) > 0, null, { timeout: 30000 });
+  check((await drawnCount(page)) > 0, 'فتح ملف DWG حقيقي عبر محرك WASM المحلي ورسمه', String(await drawnCount(page)));
+  // رأس DWG بلا محتوى يعطي رسالة خطأ بدل الانهيار
   await page.getByTestId('file-input').setInputFiles({
     name: 'plan.dwg',
     mimeType: 'application/octet-stream',
@@ -202,7 +210,7 @@ async function act(page, fn) {
   });
   await page.waitForSelector('[data-testid=error]');
   const message = await page.getByTestId('error').textContent();
-  check(message.includes('DWG') && message.includes('2013'), 'رسالة DWG واضحة بالإصدار', message.trim().slice(0, 60));
+  check(message.length > 5, 'DWG تالف يعطي رسالة خطأ', message.trim().slice(0, 60));
   await page.getByTestId('file-input').setInputFiles({
     name: 'bad.dxf',
     mimeType: 'text/plain',
@@ -215,10 +223,10 @@ async function act(page, fn) {
   await page.reload();
   await page.waitForSelector('[data-testid=empty]');
   const recentItems = page.locator('[data-testid=empty] [data-testid=recent-item]');
-  check((await recentItems.count()) === 1, 'الملف الأخير محفوظ بعد إعادة التحميل', String(await recentItems.count()));
+  check((await recentItems.count()) === 2, 'الملفان الأخيران محفوظان بعد إعادة التحميل', String(await recentItems.count()));
   await recentItems.first().click();
   await page.waitForFunction(() => document.querySelector('[data-testid=viewport]').dataset.ready === 'true');
-  check((await page.getByTestId('file-name').textContent()) === 'sample.dxf', 'فتح من الملفات الأخيرة');
+  check((await page.getByTestId('file-name').textContent()) === 'example-2013.dwg', 'إعادة فتح DWG من الملفات الأخيرة');
 
   // الأوفلاين: نتأكد أن الـ service worker يتحكم ثم نقطع الشبكة
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -231,6 +239,9 @@ async function act(page, fn) {
   await page.getByTestId('open-sample').click();
   await page.waitForFunction(() => document.querySelector('[data-testid=viewport]').dataset.ready === 'true');
   check(true, 'يعمل أوفلاين بالكامل (إعادة تحميل + فتح الملف النموذجي)');
+  await page.getByTestId('file-input').setInputFiles(new URL('../tests/fixtures/r14-v.dwg', import.meta.url).pathname);
+  await page.waitForFunction(() => document.querySelector('[data-testid=file-name]')?.textContent === 'r14-v.dwg', null, { timeout: 30000 });
+  check(true, 'فتح DWG أوفلاين (المحرك من ذاكرة الـ service worker)');
   await context.setOffline(false);
 
   check(external.length === 0, 'لا طلبات لخارج التطبيق', external.join(', '));

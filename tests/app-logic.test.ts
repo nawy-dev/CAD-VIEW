@@ -64,7 +64,7 @@ describe('التنسيق', () => {
 
 describe('النصوص المترجمة', () => {
   it('لكل رمز خطأ رسالة بالعربية والإنجليزية', () => {
-    const codes: ErrorCode[] = ['EMPTY', 'NOT_DXF', 'BINARY_DXF', 'DWG_UNSUPPORTED', 'TOO_LARGE', 'PARSE', 'READ', 'UNKNOWN'];
+    const codes: ErrorCode[] = ['EMPTY', 'NOT_DXF', 'BINARY_DXF', 'DWG_UNSUPPORTED', 'DWG_ENGINE', 'TOO_LARGE', 'PARSE', 'READ', 'UNKNOWN'];
     for (const lang of ['ar', 'en'] as const) {
       for (const code of codes) expect(strings[lang].errors[code]().length).toBeGreaterThan(5);
     }
