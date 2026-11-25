@@ -1,0 +1,106 @@
+/**
+ * محرك تحويل DWG→DXF (LibreDWG WASM). يعمل في أي سياق: خيط رئيسي، Worker، أو Node للاختبار.
+ * لا يعرف شيئًا عن الـ Worker؛ dwg.ts يختار أين يُشغَّل.
+ */
+import { LoadError, type LoadErrorCode } from '../core/dxf/errors';
+
+/** الجزء المستخدم من وحدة Emscripten. */
+export interface DwgModule {
+  FS: {
+    writeFile(path: string, data: Uint8Array): void;
+    readFile(path: string): Uint8Array;
+    unlink(path: string): void;
+    analyzePath(path: string, dontResolve?: boolean): { exists: boolean };
+  };
+  dwg_write_dxf(input: string, output: string): number;
+}
+
+export type DwgModuleLoader = () => Promise<DwgModule>;
+
+/** رابط ملف الربط نسبةً لمكان تنفيذ الكود (الصفحة أو الـ Worker داخل assets/). */
+function vendorUrl(): string {
+  if (typeof document !== 'undefined') return new URL('vendor/libredwg/libredwg-web.js', document.baseURI).href;
+  return new URL('../vendor/libredwg/libredwg-web.js', self.location.href).href;
+}
+
+export const defaultLoader: DwgModuleLoader = async () => {
+  const mod = (await import(/* @vite-ignore */ vendorUrl())) as {
+    default: (opts?: object) => Promise<DwgModule>;
+  };
+  return mod.default();
+};
+
+/** أخطاء LibreDWG الحرجة تبدأ من 128؛ ما دونها تحذيرات والملف قابل للقراءة غالبًا. */
+const CRITICAL = 128;
+
+export interface DwgEngine {
+  convert(bytes: Uint8Array): Promise<Uint8Array>;
+  /** يُسقط الوحدة المحمّلة فيُعاد تحميلها عند الاستخدام التالي. */
+  reset(): void;
+}
+
+export function createDwgEngine(loader: DwgModuleLoader = defaultLoader): DwgEngine {
+  let modulePromise: Promise<DwgModule> | null = null;
+
+  const getModule = (): Promise<DwgModule> => {
+    if (!modulePromise) {
+      modulePromise = loader().catch((error) => {
+        modulePromise = null; // نسمح بإعادة المحاولة
+        throw new LoadError('DWG_ENGINE', 'تعذّر تحميل محرك DWG', error instanceof Error ? error.message : undefined);
+      });
+    }
+    return modulePromise;
+  };
+
+  return {
+    reset() {
+      modulePromise = null;
+    },
+    async convert(bytes) {
+      const mod = await getModule();
+      const input = 'in.dwg';
+      const output = 'out.dxf';
+      try {
+        mod.FS.writeFile(input, bytes);
+        let code: number;
+        try {
+          code = mod.dwg_write_dxf(input, output);
+        } catch (error) {
+          // انهيار WASM (abort أو نفاد الذاكرة) يترك الوحدة غير صالحة: نعيد تحميلها في الفتح التالي
+          modulePromise = null;
+          throw new LoadError('PARSE', 'تعذّر قراءة ملف DWG', error instanceof Error ? error.message : undefined);
+        }
+        if (code >= CRITICAL || !mod.FS.analyzePath(output, false).exists) {
+          throw new LoadError('PARSE', 'تعذّر قراءة ملف DWG', `LibreDWG ${code}`);
+        }
+        const dxf = mod.FS.readFile(output);
+        if (dxf.length === 0) throw new LoadError('EMPTY', 'نتج عن التحويل ملف فارغ');
+        return dxf;
+      } finally {
+        for (const path of [input, output]) {
+          try {
+            if (mod.FS.analyzePath(path, false).exists) mod.FS.unlink(path);
+          } catch {
+            // تنظيف فقط
+          }
+        }
+      }
+    },
+  };
+}
+
+/** رسائل الـ Worker. */
+export interface WorkerRequest {
+  id: number;
+  bytes: Uint8Array;
+}
+export type WorkerResponse =
+  | { id: number; ok: true; dxf: Uint8Array }
+  | { id: number; ok: false; code: LoadErrorCode; message: string; detail?: string };
+
+export function toWorkerError(id: number, error: unknown): WorkerResponse {
+  if (error instanceof LoadError) {
+    return { id, ok: false, code: error.code, message: error.message, ...(error.detail ? { detail: error.detail } : {}) };
+  }
+  return { id, ok: false, code: 'PARSE', message: 'تعذّر قراءة ملف DWG', detail: error instanceof Error ? error.message : undefined } as WorkerResponse;
+}

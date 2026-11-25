@@ -202,6 +202,7 @@ async function act(page, fn) {
   await page.waitForFunction(() => document.querySelector('[data-testid=file-name]')?.textContent === 'example-2013.dwg', null, { timeout: 30000 });
   await page.waitForFunction(() => Number(document.querySelector('[data-testid=viewport]')?.dataset.drawn ?? 0) > 0, null, { timeout: 30000 });
   check((await drawnCount(page)) > 0, 'فتح ملف DWG حقيقي عبر محرك WASM المحلي ورسمه', String(await drawnCount(page)));
+  check(page.workers().length === 1, 'التحويل يجري داخل Web Worker', String(page.workers().length));
   // رأس DWG بلا محتوى يعطي رسالة خطأ بدل الانهيار
   await page.getByTestId('file-input').setInputFiles({
     name: 'plan.dwg',

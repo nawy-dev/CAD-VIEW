@@ -31,6 +31,8 @@ export default defineConfig(({ mode }) => ({
   define: {
     __PWA__: JSON.stringify(mode === 'production'),
   },
+  // Worker بصيغة ES ليستطيع تحميل محرك WASM بـ import()
+  worker: { format: 'es' },
   build: {
     target: 'es2022',
     sourcemap: false,
