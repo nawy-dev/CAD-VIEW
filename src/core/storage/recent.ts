@@ -19,7 +19,7 @@ export interface RecentOptions {
 const INDEX_KEY = 'recent:index';
 const dataKey = (id: string) => `recent:data:${id}`;
 
-/** بصمة سريعة (FNV-1a) على أول وآخر 64KB مع الحجم، لتمييز الملفات بدون قراءة كاملة. */
+/** بصمة FNV-1a على كامل المحتوى مع الحجم (30MB تُحسب في أجزاء من الثانية). */
 export function fingerprint(data: ArrayBuffer): string {
   const bytes = new Uint8Array(data);
   let hash = 0x811c9dc5;
@@ -29,9 +29,7 @@ export function fingerprint(data: ArrayBuffer): string {
       hash = Math.imul(hash, 0x01000193) >>> 0;
     }
   };
-  const window = 65536;
-  mix(0, Math.min(window, bytes.length));
-  if (bytes.length > window) mix(Math.max(window, bytes.length - window), bytes.length);
+  mix(0, bytes.length);
   return `${bytes.length.toString(36)}-${hash.toString(36)}`;
 }
 

@@ -21,7 +21,10 @@ export class IdbStore implements KeyValueStore {
       const req = indexedDB.open(this.dbName, 1);
       req.onupgradeneeded = () => req.result.createObjectStore(this.storeName);
       req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error ?? new Error('IndexedDB open failed'));
+      req.onerror = () => {
+        this.db = null; // نسمح بإعادة المحاولة لاحقًا
+        reject(req.error ?? new Error('IndexedDB open failed'));
+      };
     });
     return this.db;
   }

@@ -40,6 +40,8 @@ export interface BuildOptions {
 const DEFAULT_MAX_PRIMITIVES = 3_000_000;
 const MAX_INSERT_DEPTH = 24;
 const MAX_ARRAY_INSTANCES = 10_000;
+/** حد أقصى لعدد نسخ الكتل المُوسَّعة، لمنع الانفجار الأسي في الكتل المتداخلة. */
+const MAX_INSERT_EXPANSIONS = 200_000;
 
 interface Context {
   matrix: Matrix;
@@ -58,6 +60,8 @@ class SceneBuilder {
   private readonly blocksByUpper = new Map<string, DxfBlock>();
   private readonly unsupported: Record<string, number>;
   private readonly maxPrimitives: number;
+  private readonly blockStack = new Set<string>();
+  private expansions = 0;
   private primitives = 0;
   private truncated = false;
 
@@ -160,8 +164,10 @@ class SceneBuilder {
     const prim: PathPrim = { pts: Float64Array.from(pts), closed, minX, minY, maxX, maxY };
     const b = this.batch(layer, color);
     (fill ? b.fills : b.paths).push(prim);
-    extendBounds(this.bounds, minX, minY);
-    extendBounds(this.bounds, maxX, maxY);
+    if (!layer.hiddenByDefault) {
+      extendBounds(this.bounds, minX, minY);
+      extendBounds(this.bounds, maxX, maxY);
+    }
     layer.count++;
     this.primitives++;
   }
@@ -271,7 +277,8 @@ class SceneBuilder {
     if (!e.text.trim() || !(e.height > 0)) return;
     const m = multiply(ctx.matrix, ocsMatrix(e.extrusion.x, e.extrusion.y, e.extrusion.z));
 
-    const aligned = e.hAlign !== 0 || e.vAlign !== 0;
+    // محاذاة 3 (aligned) و5 (fit) تبدأ من نقطة الإدراج؛ نقطة 11 فيهما هي النهاية فقط
+    const aligned = [1, 2, 4].includes(e.hAlign) || e.vAlign !== 0;
     const anchor = aligned ? e.alignPoint : e.position;
     const [x, y] = applyToPoint(m, anchor.x, anchor.y);
 
@@ -334,6 +341,10 @@ class SceneBuilder {
       this.bump('INSERT(missing block)');
       return;
     }
+    if (this.blockStack.has(block.name)) {
+      this.bump('INSERT(cycle)');
+      return;
+    }
     const layer = this.resolveLayer(e, ctx);
     const color = this.resolveColor(e, layer, ctx);
     const ocs = ocsMatrix(e.extrusion.x, e.extrusion.y, e.extrusion.z);
@@ -354,14 +365,20 @@ class SceneBuilder {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < columns; c++) {
         if (this.truncated) return;
+        if (++this.expansions > MAX_INSERT_EXPANSIONS) {
+          this.truncated = true;
+          return;
+        }
         const offset = translation(c * e.columnSpacing, r * e.rowSpacing);
         const local = multiply(place, multiply(offset, multiply(scale, toBase)));
+        this.blockStack.add(block.name);
         this.emitAll(block.entities, {
           matrix: multiply(ctx.matrix, multiply(ocs, local)),
           insertLayer: layer.name,
           blockColor: color,
           depth: ctx.depth + 1,
         });
+        this.blockStack.delete(block.name);
       }
     }
   }

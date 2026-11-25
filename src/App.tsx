@@ -64,6 +64,7 @@ export function App() {
   const t = strings[lang];
   const fileInput = useRef<HTMLInputElement | null>(null);
   const token = useRef(0);
+  const nameOverride = useRef<string | null>(null);
 
   // اللغة والمظهر على مستوى الصفحة
   useEffect(() => {
@@ -102,19 +103,14 @@ export function App() {
         const data = await read();
         await nextPaint();
         if (mine !== token.current) return;
-        const next = openDrawing(name, data);
+        const next = openDrawing(nameOverride.current ?? name, data);
+        nameOverride.current = null;
         setDrawing(next);
         setHidden(new Set(next.scene.layers.filter((l) => l.hiddenByDefault).map((l) => l.name)));
         setNotesDismissed(false);
         setPanel(null);
-        if (remember) {
-          try {
-            await recentFiles.add(name, data);
-          } catch {
-            // فشل الحفظ (مساحة/وضع خاص) لا يمنع العرض
-          }
-        }
-        void refreshRecent();
+        // الحفظ في الأخيرة لا يُبقي مؤشر التحميل ظاهرًا
+        void (remember ? recentFiles.add(name, data).catch(() => null) : Promise.resolve()).then(refreshRecent);
       } catch (e) {
         if (mine === token.current) setError(toErrorInfo(e));
       } finally {
@@ -144,16 +140,18 @@ export function App() {
   );
 
   const openRecent = useCallback(
-    async (id: string) => {
-      const item = await recentFiles.open(id).catch(() => null);
-      if (!item) {
-        void refreshRecent();
-        setError({ code: 'READ' });
-        return;
-      }
-      await open(item.entry.name, async () => item.data, false);
-    },
-    [open, refreshRecent],
+    (id: string) =>
+      open(
+        '',
+        async () => {
+          const item = await recentFiles.open(id);
+          if (!item) throw new DOMException('recent', 'NotFoundError');
+          nameOverride.current = item.entry.name;
+          return item.data;
+        },
+        false,
+      ),
+    [open],
   );
 
   // فتح الملفات من نظام التشغيل بعد تثبيت التطبيق (File Handling API)

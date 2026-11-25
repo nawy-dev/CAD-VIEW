@@ -18,6 +18,10 @@ interface EntityBase {
   aci: number;
   /** لون حقيقي 24-بت (420) إن وُجد. */
   trueColor?: number;
+  /** الكيان في فضاء الورق (67=1) فلا يُرسم في فضاء النموذج. */
+  paperSpace?: boolean;
+  /** كيان غير مرئي (60=1). */
+  invisible?: boolean;
 }
 
 export interface LineEntity extends EntityBase {

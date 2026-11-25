@@ -223,8 +223,8 @@ describe('buildScene: الكتل', () => {
       blocksSection(block('A', [0, 0], line('0', 0, 0, 1, 1), rec('INSERT', [2, 'A']))),
       entities(rec('INSERT', [2, 'A'])),
     );
-    expect(allPaths(s).length).toBeLessThanOrEqual(30);
-    expect(s.stats.unsupported['INSERT(depth)']).toBeGreaterThan(0);
+    expect(allPaths(s)).toHaveLength(1);
+    expect(s.stats.unsupported['INSERT(cycle)']).toBe(1);
   });
 
   it('INSERT بثق سالب ينعكس مع موضعه', () => {

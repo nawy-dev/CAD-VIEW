@@ -33,6 +33,8 @@ interface Colored {
   layer: string;
   aci: number;
   trueColor?: number;
+  paperSpace?: boolean;
+  invisible?: boolean;
 }
 
 const num = (value: string): number => {
@@ -58,6 +60,10 @@ function readCommon(code: number, value: string, e: Colored): void {
     e.aci = aci < 0 || aci > 256 ? BYLAYER : aci;
   } else if (code === 420) {
     e.trueColor = int(value) & 0xffffff;
+  } else if (code === 67) {
+    if (int(value) === 1) e.paperSpace = true;
+  } else if (code === 60) {
+    if (int(value) === 1) e.invisible = true;
   }
 }
 
@@ -330,7 +336,6 @@ function parseMText(t: Tokens, r: Rec): DxfEntity {
   let chunks = '';
   let tail = '';
   let direction: Vec2 | null = null;
-  let hasRotation = false;
   forEachPair(t, r, (code, v) => {
     if (code === 10) e.position.x = num(v);
     else if (code === 20) e.position.y = num(v);
@@ -338,16 +343,15 @@ function parseMText(t: Tokens, r: Rec): DxfEntity {
     else if (code === 71) e.attachment = int(v);
     else if (code === 3) chunks += v;
     else if (code === 1) tail = v;
-    else if (code === 50) {
-      e.rotation = num(v);
-      hasRotation = true;
-    } else if (code === 11) direction = { x: num(v), y: direction?.y ?? 0 };
+    else if (code === 50) e.rotation = num(v);
+    else if (code === 11) direction = { x: num(v), y: direction?.y ?? 0 };
     else if (code === 21) direction = { x: direction?.x ?? 0, y: num(v) };
     else if (code >= 210 && code <= 230) readExtrusion(code, v, e.extrusion);
     else readCommon(code, v, e);
   });
   e.text = chunks + tail;
-  if (!hasRotation && direction) {
+  // اتجاه النص (11/21) يتقدم على زاوية الدوران (50) عند وجوده
+  if (direction) {
     const d = direction as Vec2;
     e.rotation = (Math.atan2(d.y, d.x) * 180) / Math.PI;
   }
@@ -537,7 +541,7 @@ function parseEntities(t: Tokens, records: Rec[], unsupported: Record<string, nu
         unsupported[r.type] = (unsupported[r.type] ?? 0) + 1;
     }
   }
-  return out;
+  return out.filter((e) => !e.invisible);
 }
 
 // ───────────────────────── الأقسام ─────────────────────────
@@ -622,7 +626,9 @@ export function parseDxf(text: string): DxfDocument {
     } else if (s.name === 'BLOCKS') {
       doc.blocks = parseBlocks(t, s, doc.unsupported);
     } else if (s.name === 'ENTITIES') {
-      doc.entities = parseEntities(t, splitRecords(t, s.start, s.end), doc.unsupported);
+      doc.entities = parseEntities(t, splitRecords(t, s.start, s.end), doc.unsupported).filter(
+        (e) => !e.paperSpace,
+      );
     }
   }
   return doc;
