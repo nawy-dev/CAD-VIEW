@@ -87,6 +87,7 @@ async function act(page, fn) {
   check((await page.getByTestId('file-name').textContent()) === 'sample.dxf', 'اسم الملف في الشريط السفلي');
   const ink = await inkPixels(page);
   check(ink > 3000, 'الرسم ظهر على الـ canvas', `${ink} px`);
+  check(page.workers().length === 1, 'تحليل DXF وبناء المشهد يجريان داخل Web Worker', String(page.workers().length));
   if (shots) await page.screenshot({ path: join(shots, 'desktop-dark.png') });
 
   // الطبقات
@@ -273,6 +274,37 @@ async function act(page, fn) {
   await page.getByTestId('toggle-layers').tap();
   check((await page.getByTestId('layers-drawer').getAttribute('data-open')) === 'true', 'لوحة الطبقات تُفتح باللمس');
   if (shots) await page.screenshot({ path: join(shots, 'mobile-layers.png') });
+  await context.close();
+}
+
+// تسخين محرك DWG في كاش مستقل بدون فتح أي ملف DWG
+{
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  await page.goto(url);
+  await page.waitForSelector('[data-testid=empty]');
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  const warmed = await page
+    .waitForFunction(
+      async () => {
+        const names = await caches.keys();
+        const name = names.find((n) => n.startsWith('cad-view-vendor-'));
+        if (!name) return false;
+        const keys = await (await caches.open(name)).keys();
+        return keys.some((r) => r.url.endsWith('.wasm')) && keys.some((r) => r.url.endsWith('libredwg-web.js'));
+      },
+      null,
+      { timeout: 20000 },
+    )
+    .then(() => true)
+    .catch(() => false);
+  check(warmed, 'محرك DWG يُخزَّن في كاش مستقل بعد التثبيت بدون فتح ملف');
+  const appCacheHasVendor = await page.evaluate(async () => {
+    const names = (await caches.keys()).filter((n) => !n.startsWith('cad-view-vendor-'));
+    for (const n of names) if ((await (await caches.open(n)).keys()).some((r) => r.url.includes('/vendor/'))) return true;
+    return false;
+  });
+  check(!appCacheHasVendor, 'كاش التطبيق لا يحتوي ملفات المحرك الثقيلة');
   await context.close();
 }
 

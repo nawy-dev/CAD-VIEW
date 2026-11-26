@@ -2,7 +2,7 @@
  * محرك تحويل DWG→DXF (LibreDWG WASM). يعمل في أي سياق: خيط رئيسي، Worker، أو Node للاختبار.
  * لا يعرف شيئًا عن الـ Worker؛ dwg.ts يختار أين يُشغَّل.
  */
-import { LoadError, type LoadErrorCode } from '../core/dxf/errors';
+import { LoadError } from '../core/dxf/errors';
 
 /** الجزء المستخدم من وحدة Emscripten. */
 export interface DwgModule {
@@ -86,22 +86,4 @@ export function createDwgEngine(loader: DwgModuleLoader): DwgEngine {
       }
     },
   };
-}
-
-/** رسائل الـ Worker. */
-export interface WorkerRequest {
-  id: number;
-  /** رابط محرك WASM المطلق (تحدده الصفحة لأن الـ Worker لا يعرف أساس التطبيق). */
-  vendorUrl: string;
-  bytes: Uint8Array;
-}
-export type WorkerResponse =
-  | { id: number; ok: true; dxf: Uint8Array }
-  | { id: number; ok: false; code: LoadErrorCode; message: string; detail?: string };
-
-export function toWorkerError(id: number, error: unknown): WorkerResponse {
-  if (error instanceof LoadError) {
-    return { id, ok: false, code: error.code, message: error.message, ...(error.detail ? { detail: error.detail } : {}) };
-  }
-  return { id, ok: false, code: 'PARSE', message: 'تعذّر قراءة ملف DWG', detail: error instanceof Error ? error.message : undefined } as WorkerResponse;
 }

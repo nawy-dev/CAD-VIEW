@@ -1,52 +1,35 @@
-import { LoadError, type LoadErrorCode } from '../core/dxf/errors';
-import { buildScene } from '../core/scene/build';
-import type { Scene } from '../core/scene/scene';
-import { convertDwgToDxf } from './dwg';
-import { detectFormat, dwgVersionLabel, loadDocument } from './loadFile';
+import { LoadError } from '../core/dxf/errors';
+import { convertDwgToDxf, isInThreadForced } from './dwg';
+import {
+  openDrawing,
+  openDrawingCore,
+  MAX_FILE_BYTES,
+  type Drawing,
+  type ErrorCode,
+  type ErrorInfo,
+} from './open-core';
+import { openInWorker, workerAvailable, WorkerStartError } from './worker-client';
 
-/** أكبر حجم ملف مقبول للفتح (بايت). */
-export const MAX_FILE_BYTES = 150 * 1024 * 1024;
+export { openDrawing, MAX_FILE_BYTES };
+export type { Drawing, ErrorCode, ErrorInfo };
 
-export interface Drawing {
-  name: string;
-  size: number;
-  version?: string;
-  scene: Scene;
-}
-
-export type ErrorCode = LoadErrorCode | 'READ' | 'UNKNOWN';
-
-export interface ErrorInfo {
-  code: ErrorCode;
-  detail?: string;
-}
-
-/** يفتح محتوى ملف ويعيد رسمًا جاهزًا للعرض، أو يرمي LoadError. */
-export function openDrawing(name: string, data: ArrayBuffer): Drawing {
-  if (data.byteLength > MAX_FILE_BYTES) {
-    throw new LoadError('TOO_LARGE', 'الملف أكبر من الحد المسموح');
-  }
-  const doc = loadDocument(data);
-  const drawing: Drawing = { name, size: data.byteLength, scene: buildScene(doc) };
-  if (doc.version !== undefined) drawing.version = doc.version;
-  return drawing;
-}
-
-/** يفتح أي ملف مدعوم: DXF مباشرة، وDWG بعد تحويله إلى DXF عبر المحرك المحلي. */
+/**
+ * يفتح أي ملف مدعوم (DXF وDWG) داخل Web Worker كي لا تتجمّد الواجهة،
+ * ويرجع إلى الخيط الرئيسي إن لم يكن الـ Worker متاحًا (أو في الاختبارات).
+ */
 export async function openDrawingFile(name: string, data: ArrayBuffer): Promise<Drawing> {
-  const bytes = new Uint8Array(data);
-  if (bytes.length === 0 || detectFormat(bytes) !== 'dwg') return openDrawing(name, data);
   if (data.byteLength > MAX_FILE_BYTES) {
     throw new LoadError('TOO_LARGE', 'الملف أكبر من الحد المسموح');
   }
-  const version = dwgVersionLabel(bytes);
-  const dxf = await convertDwgToDxf(bytes);
-  const converted =
-    dxf.byteOffset === 0 && dxf.byteLength === dxf.buffer.byteLength
-      ? (dxf.buffer as ArrayBuffer)
-      : (dxf.buffer.slice(dxf.byteOffset, dxf.byteOffset + dxf.byteLength) as ArrayBuffer);
-  const drawing = openDrawing(name, converted);
-  return { ...drawing, size: data.byteLength, version };
+  if (!isInThreadForced() && workerAvailable()) {
+    try {
+      return await openInWorker(name, data);
+    } catch (error) {
+      if (!(error instanceof WorkerStartError)) throw error;
+      // الـ Worker لا يعمل هنا (متصفح قديم): نكمل على الخيط الرئيسي
+    }
+  }
+  return openDrawingCore(name, data, convertDwgToDxf);
 }
 
 /** يحوّل أي خطأ إلى معلومات تعرضها الواجهة برسالة مترجمة. */
