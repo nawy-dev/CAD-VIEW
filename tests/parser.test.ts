@@ -317,9 +317,9 @@ describe('parseDxf: الكتل و INSERT', () => {
 
   it('الكيانات غير المدعومة تُعدّ ولا تكسر الملف', () => {
     const doc = parseDxf(
-      entitiesDoc(rec('HATCH', [8, '0']), rec('HATCH', [8, '0']), rec('LEADER', [8, '0']), line('0', 0, 0, 1, 1)),
+      entitiesDoc(rec('WIPEOUT', [8, '0']), rec('WIPEOUT', [8, '0']), rec('LEADER', [8, '0']), line('0', 0, 0, 1, 1)),
     );
     expect(doc.entities).toHaveLength(1);
-    expect(doc.unsupported).toEqual({ HATCH: 2, LEADER: 1 });
+    expect(doc.unsupported).toEqual({ WIPEOUT: 2, LEADER: 1 });
   });
 });

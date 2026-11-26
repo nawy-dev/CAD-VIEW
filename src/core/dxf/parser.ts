@@ -1,4 +1,5 @@
-import { TAU } from '../geometry/arc';
+import { polylinePoints, TAU, type PolylineVertex } from '../geometry/arc';
+import { edgesToLoop, filterIslandStyle, type HatchEdge } from '../geometry/hatch';
 import { LoadError } from './errors';
 import { cleanPlainText } from './text';
 import { tokenize, type Tokens } from './tokenizer';
@@ -422,6 +423,157 @@ function parseSpline(t: Tokens, r: Rec): DxfEntity {
   return e;
 }
 
+/** حالة حافة قيد القراءة داخل حلقة HATCH. */
+interface EdgeDraft {
+  type: number;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  r: number;
+  ratio: number;
+  start: number;
+  end: number;
+  ccw: boolean;
+  degree: number;
+  knots: number[];
+  weights: number[];
+  control: Vec2[];
+}
+
+function draftToEdge(d: EdgeDraft): HatchEdge | null {
+  switch (d.type) {
+    case 1:
+      return { kind: 'line', x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 };
+    case 2:
+      return { kind: 'arc', cx: d.x1, cy: d.y1, r: d.r, start: d.start, end: d.end, ccw: d.ccw };
+    case 3:
+      return { kind: 'ellipse', cx: d.x1, cy: d.y1, mx: d.x2, my: d.y2, ratio: d.ratio, start: d.start, end: d.end, ccw: d.ccw };
+    case 4:
+      return d.control.length >= 2
+        ? { kind: 'spline', degree: d.degree || 3, knots: d.knots, weights: d.weights, control: d.control }
+        : null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * HATCH: نقرأ حلقات الحدود فقط (بوليلاين أو حواف خط/قوس/قطع ناقص/سبلاين).
+ * بيانات النمط والبذور بعد الرمز 75 تُتجاهل لأن رموزها تتعارض مع رموز الهندسة.
+ */
+function parseHatch(t: Tokens, r: Rec): DxfEntity {
+  const e: Extract<DxfEntity, { type: 'HATCH' }> = {
+    type: 'HATCH',
+    layer: '0',
+    aci: BYLAYER,
+    solid: false,
+    loops: [],
+    extrusion: newExtrusion(),
+  };
+  let started = false;
+  let done = false;
+  let verts: PolylineVertex[] | null = null;
+  let polyClosed = true;
+  let edges: HatchEdge[] | null = null;
+  let draft: EdgeDraft | null = null;
+
+  const newDraft = (type: number): EdgeDraft => ({
+    type, x1: 0, y1: 0, x2: 0, y2: 0, r: 0, ratio: 1, start: 0, end: 360, ccw: true,
+    degree: 3, knots: [], weights: [], control: [],
+  });
+  const closeEdge = () => {
+    if (draft && edges) {
+      const edge = draftToEdge(draft);
+      if (edge) edges.push(edge);
+    }
+    draft = null;
+  };
+  const closeLoop = () => {
+    closeEdge();
+    let flat: number[] = [];
+    if (verts) flat = polylinePoints(verts, polyClosed);
+    else if (edges) flat = edgesToLoop(edges);
+    if (flat.length >= 6) e.loops.push(flat);
+    verts = null;
+    edges = null;
+  };
+
+  forEachPair(t, r, (code, v) => {
+    if (done) return;
+    if (code === 75) {
+      closeLoop();
+      e.loops = filterIslandStyle(e.loops, int(v));
+      done = true;
+      return;
+    }
+    if (code === 70 && !started) {
+      e.solid = int(v) === 1;
+      return;
+    }
+    if (code === 91) {
+      started = true;
+      return;
+    }
+    if (code === 92) {
+      closeLoop();
+      if ((int(v) & 2) !== 0) {
+        verts = [];
+        polyClosed = true;
+      } else {
+        edges = [];
+      }
+      return;
+    }
+    if (verts) {
+      if (code === 73) polyClosed = int(v) !== 0;
+      else if (code === 10) verts.push({ x: num(v), y: 0, bulge: 0 });
+      else if (code === 20) {
+        const last = verts[verts.length - 1];
+        if (last) last.y = num(v);
+      } else if (code === 42) {
+        const last = verts[verts.length - 1];
+        if (last) last.bulge = num(v);
+      }
+      return;
+    }
+    if (edges) {
+      if (code === 72) {
+        closeEdge();
+        draft = newDraft(int(v));
+        return;
+      }
+      if (draft) {
+        const d = draft as EdgeDraft;
+        if (code === 10) {
+          if (d.type === 4) d.control.push({ x: num(v), y: 0 });
+          else d.x1 = num(v);
+        } else if (code === 20) {
+          if (d.type === 4) {
+            const last = d.control[d.control.length - 1];
+            if (last) last.y = num(v);
+          } else d.y1 = num(v);
+        } else if (code === 11) d.x2 = num(v);
+        else if (code === 21) d.y2 = num(v);
+        else if (code === 40) {
+          if (d.type === 2) d.r = num(v);
+          else if (d.type === 3) d.ratio = num(v);
+          else if (d.type === 4) d.knots.push(num(v));
+        } else if (code === 42 && d.type === 4) d.weights.push(num(v));
+        else if (code === 50) d.start = num(v);
+        else if (code === 51) d.end = num(v);
+        else if (code === 73 && d.type !== 4) d.ccw = int(v) !== 0;
+        else if (code === 94) d.degree = int(v);
+        return;
+      }
+    }
+    if (code >= 210 && code <= 230) readExtrusion(code, v, e.extrusion);
+    else if (!started) readCommon(code, v, e);
+  });
+  closeLoop();
+  return e;
+}
+
 function newInsert(block: string): InsertEntity {
   return {
     type: 'INSERT',
@@ -514,6 +666,9 @@ function parseEntities(t: Tokens, records: Rec[], unsupported: Record<string, nu
         break;
       case 'SPLINE':
         out.push(parseSpline(t, r));
+        break;
+      case 'HATCH':
+        out.push(parseHatch(t, r));
         break;
       case 'INSERT': {
         const { entity, attribsFollow } = parseInsert(t, r);

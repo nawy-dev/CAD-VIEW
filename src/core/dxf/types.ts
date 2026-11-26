@@ -115,6 +115,14 @@ export interface SolidEntity extends EntityBase {
   extrusion: Vec3;
 }
 
+/** HATCH: حلقات الحدود كنقاط مسطحة (OCS). solid=false (نمط) يُرسم حدوده فقط. */
+export interface HatchEntity extends EntityBase {
+  type: 'HATCH';
+  solid: boolean;
+  loops: number[][];
+  extrusion: Vec3;
+}
+
 export interface SplineEntity extends EntityBase {
   type: 'SPLINE';
   degree: number;
@@ -149,6 +157,7 @@ export type DxfEntity =
   | MTextEntity
   | SolidEntity
   | SplineEntity
+  | HatchEntity
   | InsertEntity;
 
 export interface DxfLayer {

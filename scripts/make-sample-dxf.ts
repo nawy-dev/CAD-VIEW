@@ -283,6 +283,34 @@ pair(40, 24);
 pair(71, 7);
 pair(1, '{\\fArial|b1;مخطط شقة تجريبي}\\PCAD-VIEW sample plan');
 
+// تعبئة صلبة (HATCH) بثقب: عمود خرساني مجوّف
+entity('HATCH', 'FURNITURE');
+pair(10, 0);
+pair(20, 0);
+pair(30, 0);
+pair(210, 0);
+pair(220, 0);
+pair(230, 1);
+pair(2, 'SOLID');
+pair(70, 1);
+pair(71, 0);
+pair(91, 2);
+const hatchLoop = (x1: number, y1: number, x2: number, y2: number) => {
+  pair(92, 7);
+  pair(72, 0);
+  pair(73, 1);
+  pair(93, 4);
+  for (const [x, y] of [[x1, y1], [x2, y1], [x2, y2], [x1, y2]] as const) {
+    pair(10, x);
+    pair(20, y);
+  }
+  pair(97, 0);
+};
+hatchLoop(440, 440, 480, 480);
+hatchLoop(450, 450, 470, 470);
+pair(75, 0);
+pair(76, 1);
+
 // طبقة مجمّدة: لا تظهر حتى تُفعَّل من لوحة الطبقات
 line('DRAFT', 0, 0, 1000, 800);
 line('DRAFT', 0, 800, 1000, 0);

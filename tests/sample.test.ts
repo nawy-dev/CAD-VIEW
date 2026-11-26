@@ -37,8 +37,14 @@ describe('الملف التجريبي sample.dxf', () => {
     expect(layer('0')?.count).toBe(0);
   });
 
-  it('الكراسي: مصفوفة 4 نسخ × (دائرة + قوس) + طاولة بيضاوية', () => {
-    expect(layer('FURNITURE')?.count).toBe(9);
+  it('الكراسي: مصفوفة 4 نسخ × (دائرة + قوس) + طاولة بيضاوية + عمود HATCH', () => {
+    expect(layer('FURNITURE')?.count).toBe(10);
+  });
+
+  it('عمود HATCH صلب بثقب: حلقتان في تعبئة واحدة', () => {
+    const hatches = scene.batches.flatMap((b) => b.hatches);
+    expect(hatches).toHaveLength(1);
+    expect(hatches[0]?.loops).toHaveLength(2);
   });
 
   it('النصوص العربية والـ MTEXT متعدد الأسطر', () => {

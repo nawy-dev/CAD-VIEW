@@ -10,12 +10,24 @@ export interface PathPrim {
   maxY: number;
 }
 
+export interface HatchPrim {
+  loops: Float64Array[];
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
+
 /** مجموعة عناصر لها نفس الطبقة واللون، لتقليل استدعاءات الرسم. */
 export interface Batch {
   layer: string;
+  /** طبقات الـ INSERT الحاوية؛ إخفاء أي منها يخفي الدفعة. */
+  via?: string[];
   color: number;
   paths: PathPrim[];
   fills: PathPrim[];
+  /** تعبئات HATCH: عدة حلقات تُملأ معًا بقاعدة even-odd لتظهر الثقوب. */
+  hatches: HatchPrim[];
   /** نقاط POINT مسطحة. */
   points: number[];
 }
@@ -25,6 +37,7 @@ export type VAlign = 'top' | 'middle' | 'bottom' | 'baseline';
 
 export interface TextPrim {
   layer: string;
+  via?: string[];
   color: number;
   x: number;
   y: number;

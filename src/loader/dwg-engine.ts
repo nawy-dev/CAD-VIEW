@@ -17,14 +17,13 @@ export interface DwgModule {
 
 export type DwgModuleLoader = () => Promise<DwgModule>;
 
-/** رابط ملف الربط نسبةً لمكان تنفيذ الكود (الصفحة أو الـ Worker داخل assets/). */
-function vendorUrl(): string {
-  if (typeof document !== 'undefined') return new URL('vendor/libredwg/libredwg-web.js', document.baseURI).href;
-  return new URL('../vendor/libredwg/libredwg-web.js', self.location.href).href;
+/** رابط ملف الربط مطلقًا نسبةً لأساس الصفحة (يعمل في التطوير والإنتاج وداخل Capacitor). */
+export function vendorUrlFromPage(): string {
+  return new URL('vendor/libredwg/libredwg-web.js', document.baseURI).href;
 }
 
-export const defaultLoader: DwgModuleLoader = async () => {
-  const mod = (await import(/* @vite-ignore */ vendorUrl())) as {
+export const loaderFor = (url: string): DwgModuleLoader => async () => {
+  const mod = (await import(/* @vite-ignore */ url)) as {
     default: (opts?: object) => Promise<DwgModule>;
   };
   return mod.default();
@@ -39,7 +38,7 @@ export interface DwgEngine {
   reset(): void;
 }
 
-export function createDwgEngine(loader: DwgModuleLoader = defaultLoader): DwgEngine {
+export function createDwgEngine(loader: DwgModuleLoader): DwgEngine {
   let modulePromise: Promise<DwgModule> | null = null;
 
   const getModule = (): Promise<DwgModule> => {
@@ -92,6 +91,8 @@ export function createDwgEngine(loader: DwgModuleLoader = defaultLoader): DwgEng
 /** رسائل الـ Worker. */
 export interface WorkerRequest {
   id: number;
+  /** رابط محرك WASM المطلق (تحدده الصفحة لأن الـ Worker لا يعرف أساس التطبيق). */
+  vendorUrl: string;
   bytes: Uint8Array;
 }
 export type WorkerResponse =

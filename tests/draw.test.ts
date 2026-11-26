@@ -47,8 +47,10 @@ class FakeContext {
   stroke() {
     this.strokes.push(this.strokeStyle);
   }
-  fill() {
+  fillRules: Array<string | undefined> = [];
+  fill(rule?: string) {
     this.fills.push(this.fillStyle);
+    this.fillRules.push(rule);
   }
   fillRect(x: number, y: number, w: number, h: number) {
     this.rects.push([x, y, w, h, this.fillStyle]);
@@ -180,5 +182,33 @@ describe('drawScene: النصوص', () => {
     expect(ys[1]! - ys[0]!).toBeCloseTo(14, 6);
     expect(ys[2]! - ys[1]!).toBeCloseTo(14, 6);
     expect(ctx.texts[0]?.align).toBe('left');
+  });
+
+  it('HATCH بثقب يُملأ بقاعدة even-odd في استدعاء واحد', () => {
+    const g = (c: number, v: string | number) => `${String(c).padStart(3, ' ')}\n${v}\n`;
+    const loop = (pts: number[][]) =>
+      g(92, 7) + g(72, 0) + g(73, 1) + g(93, pts.length) + pts.map(([x, y]) => g(10, x as number) + g(20, y as number)).join('');
+    const hatch =
+      g(0, 'HATCH') + g(8, 'A') + g(70, 1) + g(91, 2) +
+      loop([[0, 0], [90, 0], [90, 90], [0, 90]]) + loop([[30, 30], [60, 30], [60, 60], [30, 60]]) + g(75, 0);
+    const ctx = new FakeContext();
+    drawScene(asContext(ctx), scene(hatch), view, options());
+    expect(ctx.fillRules).toEqual(['evenodd']);
+    expect(ctx.fills).toEqual([colorToCss(1, 'dark')]);
+  });
+
+  it('إخفاء طبقة INSERT يخفي محتوى الكتلة', () => {
+    const doc = dxf(
+      layersSection(['A', 1], ['B', 3]),
+      section('BLOCKS', '  0\nBLOCK\n  2\nBLK\n 10\n0\n 20\n0\n  0\nLINE\n  8\nA\n 10\n0\n 20\n0\n 11\n10\n 21\n10\n  0\nENDBLK\n'),
+      section('ENTITIES', rec('INSERT', [8, 'B'], [2, 'BLK'], [10, 0], [20, 0])),
+    );
+    const s = buildScene(parseDxf(doc));
+    const shown = new FakeContext();
+    drawScene(asContext(shown), s, view, options());
+    expect(shown.strokes).toHaveLength(1);
+    const hidden = new FakeContext();
+    drawScene(asContext(hidden), s, view, options({ hiddenLayers: new Set(['B']) }));
+    expect(hidden.strokes).toHaveLength(0);
   });
 });

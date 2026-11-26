@@ -293,7 +293,7 @@ describe('buildScene: الحدود والإحصاءات', () => {
   });
 
   it('يمرّر عدّاد الكيانات غير المدعومة', () => {
-    const s = sceneOf(entities(rec('HATCH', [8, '0'] as Pair)));
-    expect(s.stats.unsupported).toEqual({ HATCH: 1 });
+    const s = sceneOf(entities(rec('WIPEOUT', [8, '0'] as Pair)));
+    expect(s.stats.unsupported).toEqual({ WIPEOUT: 1 });
   });
 });

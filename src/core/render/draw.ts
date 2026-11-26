@@ -23,6 +23,13 @@ const MAX_TEXTS_PER_FRAME = 4000;
 /** المسارات الأصغر من هذا (بكسل) لا تُرى فنتخطاها. */
 const MIN_PATH_PX = 0.25;
 
+/** مخفي إن كانت طبقته أو طبقة أي INSERT حاوٍ مخفية. */
+export function isHidden(hidden: ReadonlySet<string>, layer: string, via?: readonly string[]): boolean {
+  if (hidden.has(layer)) return true;
+  if (via) for (const name of via) if (hidden.has(name)) return true;
+  return false;
+}
+
 function overlaps(rect: Bounds, minX: number, minY: number, maxX: number, maxY: number): boolean {
   return minX <= rect.maxX && maxX >= rect.minX && minY <= rect.maxY && maxY >= rect.minY;
 }
@@ -89,7 +96,7 @@ export function drawScene(
   ctx.lineCap = 'round';
 
   for (const batch of scene.batches) {
-    if (hiddenLayers.has(batch.layer)) continue;
+    if (isHidden(hiddenLayers, batch.layer, batch.via)) continue;
     const css = colorToCss(batch.color, theme);
 
     if (batch.fills.length > 0) {
@@ -102,7 +109,17 @@ export function drawScene(
       ctx.fill();
     }
 
-    if (batch.paths.length > 0 || batch.fills.length > 0) {
+    if (batch.hatches.length > 0) {
+      ctx.fillStyle = css;
+      for (const h of batch.hatches) {
+        if (!overlaps(rect, h.minX, h.minY, h.maxX, h.maxY)) continue;
+        ctx.beginPath();
+        for (const loop of h.loops) tracePath(ctx, loop, true, scale, tx, ty);
+        ctx.fill('evenodd');
+      }
+    }
+
+    if (batch.paths.length > 0 || batch.fills.length > 0 || batch.hatches.length > 0) {
       ctx.strokeStyle = css;
       ctx.beginPath();
       for (const p of batch.paths) {
@@ -113,6 +130,10 @@ export function drawScene(
       for (const p of batch.fills) {
         if (!overlaps(rect, p.minX, p.minY, p.maxX, p.maxY)) continue;
         tracePath(ctx, p.pts, true, scale, tx, ty);
+      }
+      for (const h of batch.hatches) {
+        if (!overlaps(rect, h.minX, h.minY, h.maxX, h.maxY)) continue;
+        for (const loop of h.loops) tracePath(ctx, loop, true, scale, tx, ty);
       }
       ctx.stroke();
     }
@@ -134,7 +155,7 @@ export function drawScene(
   let drawn = 0;
   let currentColor = '';
   for (const t of scene.texts) {
-    if (hiddenLayers.has(t.layer)) continue;
+    if (isHidden(hiddenLayers, t.layer, t.via)) continue;
     const px = t.height * scale;
     if (px < MIN_TEXT_PX) continue;
     // استبعاد النصوص البعيدة عن المنطقة المرئية (بهامش بحجم النص)

@@ -50,9 +50,13 @@ interface Context {
   /** لون الـ INSERT الحاوي: يرثه BYBLOCK. */
   blockColor: number | undefined;
   depth: number;
+  /** طبقات كل INSERT حاوٍ (من الخارج للداخل)؛ إخفاء أي منها يخفي المحتوى. */
+  chain: readonly string[];
 }
 
 class SceneBuilder {
+  /** سلسلة طبقات الـ INSERT للعنصر الجاري رسمه. */
+  private via: readonly string[] = [];
   private readonly layers = new Map<string, LayerInfo>();
   private readonly batches = new Map<string, Batch>();
   private readonly texts: TextPrim[] = [];
@@ -88,6 +92,7 @@ class SceneBuilder {
       insertLayer: undefined,
       blockColor: undefined,
       depth: 0,
+      chain: [],
     });
     return {
       batches: [...this.batches.values()],
@@ -112,6 +117,11 @@ class SceneBuilder {
     return info;
   }
 
+  /** تبدأ مخفية إن كانت طبقتها أو طبقة أي INSERT حاوٍ مخفية افتراضيًا. */
+  private startsHidden(layer: LayerInfo): boolean {
+    return layer.hiddenByDefault || this.via.some((name) => this.layer(name).hiddenByDefault);
+  }
+
   private bump(type: string): void {
     this.unsupported[type] = (this.unsupported[type] ?? 0) + 1;
   }
@@ -129,10 +139,13 @@ class SceneBuilder {
   }
 
   private batch(layer: LayerInfo, color: number): Batch {
-    const key = `${layer.name}\u0000${color}`;
+    // طبقة الـ INSERT نفسها لا تضيف شيئًا: إخفاؤها يخفي الدفعة أصلًا، فتُدمج الدفعات
+    const via = this.via.filter((name) => name !== layer.name);
+    const key = `${layer.name}\u0000${color}\u0000${via.join('\u0001')}`;
     let b = this.batches.get(key);
     if (!b) {
-      b = { layer: layer.name, color, paths: [], fills: [], points: [] };
+      b = { layer: layer.name, color, paths: [], fills: [], hatches: [], points: [] };
+      if (via.length > 0) b.via = via;
       this.batches.set(key, b);
     }
     return b;
@@ -164,7 +177,7 @@ class SceneBuilder {
     const prim: PathPrim = { pts: Float64Array.from(pts), closed, minX, minY, maxX, maxY };
     const b = this.batch(layer, color);
     (fill ? b.fills : b.paths).push(prim);
-    if (!layer.hiddenByDefault) {
+    if (!this.startsHidden(layer)) {
       extendBounds(this.bounds, minX, minY);
       extendBounds(this.bounds, maxX, maxY);
     }
@@ -172,18 +185,49 @@ class SceneBuilder {
     this.primitives++;
   }
 
+  /** تعبئة HATCH صلبة بعدة حلقات (الثقوب تظهر بقاعدة even-odd عند الرسم). */
+  private addHatch(layer: LayerInfo, color: number, loops: number[][]): void {
+    if (this.tooMany()) return;
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const pts of loops) {
+      for (let i = 0; i + 1 < pts.length; i += 2) {
+        const x = pts[i] as number;
+        const y = pts[i + 1] as number;
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+    if (minX > maxX) return;
+    this.batch(layer, color).hatches.push({ loops: loops.map((l) => Float64Array.from(l)), minX, minY, maxX, maxY });
+    if (!this.startsHidden(layer)) {
+      extendBounds(this.bounds, minX, minY);
+      extendBounds(this.bounds, maxX, maxY);
+    }
+    layer.count++;
+    // HATCH ضخم بنقاط كثيرة يُحتسب بوزنه كي يعمل حد العناصر
+    this.primitives += 1 + Math.floor(loops.reduce((n, l) => n + l.length, 0) / 128);
+  }
+
   private addPoint(layer: LayerInfo, color: number, x: number, y: number): void {
     if (!Number.isFinite(x) || !Number.isFinite(y) || this.tooMany()) return;
     this.batch(layer, color).points.push(x, y);
-    extendBounds(this.bounds, x, y);
+    if (!this.startsHidden(layer)) extendBounds(this.bounds, x, y);
     layer.count++;
     this.primitives++;
   }
 
   private addText(prim: TextPrim): void {
     if (!Number.isFinite(prim.x) || !Number.isFinite(prim.y) || this.tooMany()) return;
+    const textVia = this.via.filter((name) => name !== prim.layer);
+    if (textVia.length > 0) prim.via = textVia;
     this.texts.push(prim);
-    extendBounds(this.bounds, prim.x, prim.y);
+    if (!this.startsHidden(this.layer(prim.layer))) extendBounds(this.bounds, prim.x, prim.y);
     this.layer(prim.layer).count++;
     this.primitives++;
   }
@@ -196,6 +240,7 @@ class SceneBuilder {
   }
 
   private emit(e: DxfEntity, ctx: Context): void {
+    this.via = ctx.chain;
     if (e.type === 'INSERT') {
       this.emitInsert(e, ctx);
       return;
@@ -262,6 +307,20 @@ class SceneBuilder {
         const pts = splinePoints(e);
         transformFlat(m, pts);
         this.addPath(layer, color, pts, false, false);
+        break;
+      }
+      case 'HATCH': {
+        const hm = multiply(m, ocsMatrix(e.extrusion.x, e.extrusion.y, e.extrusion.z));
+        const loops = e.loops.map((l) => {
+          const p = [...l];
+          transformFlat(hm, p);
+          return p;
+        });
+        if (e.solid) this.addHatch(layer, color, loops);
+        else {
+          this.bump('HATCH(pattern)');
+          for (const loop of loops) this.addPath(layer, color, loop, true, false);
+        }
         break;
       }
       case 'TEXT':
@@ -377,6 +436,7 @@ class SceneBuilder {
           insertLayer: layer.name,
           blockColor: color,
           depth: ctx.depth + 1,
+          chain: ctx.chain.includes(layer.name) ? ctx.chain : [...ctx.chain, layer.name],
         });
         this.blockStack.delete(block.name);
       }

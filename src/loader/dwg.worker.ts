@@ -1,11 +1,16 @@
 /// <reference lib="webworker" />
-import { createDwgEngine, toWorkerError, type WorkerRequest, type WorkerResponse } from './dwg-engine';
+import { createDwgEngine, loaderFor, toWorkerError, type DwgEngine, type WorkerRequest, type WorkerResponse } from './dwg-engine';
 
-const engine = createDwgEngine();
+let engine: DwgEngine | null = null;
+let engineUrl = '';
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
-  const { id, bytes } = event.data;
+  const { id, bytes, vendorUrl } = event.data;
   try {
+    if (!engine || engineUrl !== vendorUrl) {
+      engine = createDwgEngine(loaderFor(vendorUrl));
+      engineUrl = vendorUrl;
+    }
     const dxf = await engine.convert(bytes);
     const reply: WorkerResponse = { id, ok: true, dxf };
     (self as unknown as Worker).postMessage(reply, [dxf.buffer]);
