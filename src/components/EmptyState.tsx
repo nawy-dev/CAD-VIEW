@@ -1,5 +1,6 @@
 import type { RecentEntry } from '../core/storage/recent';
 import type { Lang, Strings } from '../i18n/strings';
+import { dwgEnabled } from '../loader/dwg/registry';
 import { IconOpen, LogoMark } from './icons';
 import { RecentList } from './RecentList';
 
@@ -32,7 +33,7 @@ export function EmptyState({ t, lang, recent, onPick, onSample, onOpenRecent }: 
           </button>
         </div>
         <p className="muted">{t.dropHint}</p>
-        <p className="muted small">{t.formatsHint}</p>
+        <p className="muted small">{dwgEnabled() ? t.formatsHint : t.formatsHintDxfOnly}</p>
         {recent.length > 0 && (
           <div className="empty-recent">
             <h2>{t.recentTitle}</h2>

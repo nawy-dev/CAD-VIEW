@@ -1,6 +1,7 @@
 # بدون "/" في النهاية عمدًا، ليشمل أيضًا الرابط الرمزي
 node_modules
 dist
+dist-nodwg
 coverage
 *.log
 .DS_Store

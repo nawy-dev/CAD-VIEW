@@ -6,8 +6,8 @@ export interface WorkerRequest {
   id: number;
   name: string;
   bytes: Uint8Array;
-  /** رابط محرك WASM المطلق (تحدده الصفحة لأن الـ Worker لا يعرف أساس التطبيق). */
-  vendorUrl: string;
+  /** أساس التطبيق المطلق (تحدده الصفحة لأن الـ Worker لا يعرف أين نُشر التطبيق). */
+  baseUrl: string;
 }
 
 export type WorkerResponse =

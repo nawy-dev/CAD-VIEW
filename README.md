@@ -14,6 +14,8 @@ React + TypeScript + Vite + Vitest. **لا CDN ولا خطوط ولا خدمات
 **تنبيه ترخيص:** LibreDWG مرخّص GPL-3، فتوزيع التطبيق بهذا المحرك يستلزم توزيعه بترخيص GPL-3 متوافق (تفاصيل في `public/vendor/libredwg/README.md`).
 المحدودية: التحويل يجري على الخيط الرئيسي، فقد يتجمّد العرض لحظات مع ملفات DWG الضخمة.
 
+محرك DWG قابل للتبديل، ويوجد بناء بلا DWG (`npm run build:nodwg`) لمن لا يريد قيود GPL: راجع `docs/DWG-ENGINES.md`.
+
 ## التشغيل
 ```bash
 npm install

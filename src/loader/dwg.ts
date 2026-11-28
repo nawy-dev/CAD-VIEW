@@ -1,26 +1,28 @@
 /**
  * تحويل DWG→DXF على نفس الخيط (احتياطي ولأجل الاختبارات). الاستعمال العادي يجري داخل الـ Worker (open.worker.ts).
- * يعتمد على LibreDWG WASM المضمَّن محليًا في public/vendor/libredwg (لا اتصال خارجي).
+ * المحرك نفسه يأتي من registry.ts (قابل للتبديل)، وهذا الملف لا يعرف أي محرك بعينه.
  */
-import { createDwgEngine, loaderFor, vendorUrlFromPage, type DwgEngine, type DwgModule, type DwgModuleLoader } from './dwg-engine';
+import { LoadError } from '../core/dxf/errors';
+import type { DwgConverter } from './dwg/provider';
+import { activeProvider } from './dwg/registry';
 
-export type { DwgModule, DwgModuleLoader };
+let converter: DwgConverter | null = null;
+let converterKey = '';
 
-let inThreadLoader: DwgModuleLoader | undefined;
-let engine: DwgEngine | null = null;
-/** عند true يُفرض التشغيل على الخيط الحالي (للاختبارات). */
-let forced = false;
-
-/** للاختبارات: استبدال المحمّل وفرض التشغيل على نفس الخيط. */
-export function setDwgModuleLoader(next: DwgModuleLoader | null): void {
-  inThreadLoader = next ?? undefined;
-  engine = null;
-  forced = next !== null;
+/** للاختبارات: تصفير المحوّل المخزّن (بعد تبديل المحرك). */
+export function resetDwgConverter(): void {
+  converter = null;
 }
 
-export const isInThreadForced = (): boolean => forced;
-
 export function convertDwgToDxf(bytes: Uint8Array): Promise<Uint8Array> {
-  engine ??= createDwgEngine(inThreadLoader ?? loaderFor(vendorUrlFromPage()));
-  return engine.convert(bytes);
+  const provider = activeProvider();
+  if (!provider) return Promise.reject(new LoadError('DWG_UNSUPPORTED', 'هذه النسخة لا تدعم DWG'));
+  const base = typeof document !== 'undefined' ? document.baseURI : 'http://localhost/';
+  const key = `${provider.id}@${base}`;
+  if (!converter || converterKey !== key) {
+    converter?.reset?.();
+    converter = provider.create(base);
+    converterKey = key;
+  }
+  return converter.convert(bytes);
 }

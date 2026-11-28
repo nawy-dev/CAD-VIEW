@@ -2,7 +2,8 @@
  * محرك تحويل DWG→DXF (LibreDWG WASM). يعمل في أي سياق: خيط رئيسي، Worker، أو Node للاختبار.
  * لا يعرف شيئًا عن الـ Worker؛ dwg.ts يختار أين يُشغَّل.
  */
-import { LoadError } from '../core/dxf/errors';
+import { LoadError } from '../../core/dxf/errors';
+import type { DwgConverter, DwgProvider } from './provider';
 
 /** الجزء المستخدم من وحدة Emscripten. */
 export interface DwgModule {
@@ -17,9 +18,9 @@ export interface DwgModule {
 
 export type DwgModuleLoader = () => Promise<DwgModule>;
 
-/** رابط ملف الربط مطلقًا نسبةً لأساس الصفحة (يعمل في التطوير والإنتاج وداخل Capacitor). */
-export function vendorUrlFromPage(): string {
-  return new URL('vendor/libredwg/libredwg-web.js', document.baseURI).href;
+/** رابط ملف الربط مطلقًا نسبةً لأساس التطبيق (يعمل في التطوير والإنتاج وداخل Capacitor). */
+export function vendorUrl(baseUrl: string): string {
+  return new URL('vendor/libredwg/libredwg-web.js', baseUrl).href;
 }
 
 export const loaderFor = (url: string): DwgModuleLoader => async () => {
@@ -32,9 +33,7 @@ export const loaderFor = (url: string): DwgModuleLoader => async () => {
 /** أخطاء LibreDWG الحرجة تبدأ من 128؛ ما دونها تحذيرات والملف قابل للقراءة غالبًا. */
 const CRITICAL = 128;
 
-export interface DwgEngine {
-  convert(bytes: Uint8Array): Promise<Uint8Array>;
-  /** يُسقط الوحدة المحمّلة فيُعاد تحميلها عند الاستخدام التالي. */
+export interface DwgEngine extends DwgConverter {
   reset(): void;
 }
 
@@ -87,3 +86,14 @@ export function createDwgEngine(loader: DwgModuleLoader): DwgEngine {
     },
   };
 }
+
+/** المحرك الافتراضي: LibreDWG مبنيًا WASM داخل public/vendor/libredwg (ترخيص GPL-3). */
+export const libredwgProvider: DwgProvider = {
+  id: 'libredwg',
+  label: 'LibreDWG (WASM)',
+  // قيم حرفية عمدًا (لا قراءة خصائص) كي تُحذف الوحدة كاملة من بناء nodwg؛
+  // يتحقق tests/dwg-providers.test.ts أنها تطابق engines.ts.
+  license: 'GPL-3.0-or-later',
+  assetDir: 'vendor/libredwg',
+  create: (baseUrl) => createDwgEngine(loaderFor(vendorUrl(baseUrl))),
+};

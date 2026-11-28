@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { LoadError } from '../src/core/dxf/errors';
-import { convertDwgToDxf, setDwgModuleLoader, type DwgModule } from '../src/loader/dwg';
+import { convertDwgToDxf, resetDwgConverter } from '../src/loader/dwg';
+import { createDwgEngine, type DwgModule, type DwgModuleLoader } from '../src/loader/dwg/libredwg';
+import { setProviderOverride } from '../src/loader/dwg/registry';
 import { openDrawingFile } from '../src/loader/openDrawing';
 
 const fixture = (name: string): ArrayBuffer => {
@@ -14,6 +16,16 @@ const realLoader = async (): Promise<DwgModule> => {
   const url = new URL('../public/vendor/libredwg/libredwg-web.js', import.meta.url).href;
   const mod = (await import(/* @vite-ignore */ url)) as { default: () => Promise<DwgModule> };
   return mod.default();
+};
+
+/** يجعل التطبيق يستعمل هذا المحمّل بدل تحميل المحرك من المتصفح (لاختبار ملفات حقيقية في Node). */
+const setDwgModuleLoader = (loader: DwgModuleLoader | null): void => {
+  setProviderOverride(
+    loader
+      ? { id: 'test', label: 'test', license: 'GPL-3.0-or-later', assetDir: 'vendor/libredwg', create: () => createDwgEngine(loader) }
+      : undefined,
+  );
+  resetDwgConverter();
 };
 
 describe('DWG عبر LibreDWG المحلي', () => {

@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { LoadError } from '../src/core/dxf/errors';
 import { openDrawingFile } from '../src/loader/openDrawing';
 import { openDrawingCore, sceneBuffers } from '../src/loader/open-core';
-import { setDwgModuleLoader } from '../src/loader/dwg';
+import { resetDwgConverter } from '../src/loader/dwg';
+import { setProviderOverride } from '../src/loader/dwg/registry';
 import { resetWorkerClientForTests } from '../src/loader/worker-client';
 import type { WorkerRequest, WorkerResponse } from '../src/loader/worker-protocol';
 import { dxf, line, section } from './helpers';
@@ -57,7 +58,8 @@ function installFakeWorker(behaviour: () => Behaviour) {
 
 describe('فتح الملفات عبر Worker', () => {
   beforeEach(() => {
-    setDwgModuleLoader(null); // يلغي الفرض على نفس الخيط
+    setProviderOverride(undefined);
+    resetDwgConverter();
     resetWorkerClientForTests();
     (globalThis as { document?: unknown }).document = { baseURI: 'http://localhost/' };
   });
@@ -74,7 +76,7 @@ describe('فتح الملفات عبر Worker', () => {
     expect(d.scene.stats.primitives).toBe(1);
     expect(data.byteLength).toBeGreaterThan(0);
     expect(created).toHaveLength(1);
-    expect(created[0]?.requests[0]?.vendorUrl).toBe('http://localhost/vendor/libredwg/libredwg-web.js');
+    expect(created[0]?.requests[0]?.baseUrl).toBe('http://localhost/');
   });
 
   it('يعيد استخدام نفس الـ Worker بين الملفات', async () => {

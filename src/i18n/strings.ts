@@ -32,6 +32,7 @@ export interface Strings {
   stageBuild: string;
   dropHint: string;
   formatsHint: string;
+  formatsHintDxfOnly: string;
   online: string;
   offline: string;
   dismiss: string;
@@ -70,6 +71,7 @@ const ar: Strings = {
   stageBuild: 'جارٍ تجهيز الرسم…',
   dropHint: 'اسحب ملف DXF وأفلته هنا، أو اضغط «فتح ملف»',
   formatsHint: 'يدعم ملفات DXF وDWG ويعمل بدون إنترنت.',
+  formatsHintDxfOnly: 'يدعم ملفات DXF ويعمل بدون إنترنت.',
   online: 'متصل',
   offline: 'بدون إنترنت — التطبيق يعمل محليًا',
   dismiss: 'إخفاء',
@@ -82,7 +84,7 @@ const ar: Strings = {
     NOT_DXF: () => 'هذا الملف ليس بصيغة DXF صالحة.',
     BINARY_DXF: () => 'ملفات DXF الثنائية غير مدعومة بعد. صدّر الملف بصيغة DXF نصية (ASCII).',
     DWG_UNSUPPORTED: (detail) =>
-      `ملفات DWG غير مدعومة بعد${detail ? ` (الإصدار: ${detail})` : ''}. صدّر الرسم بصيغة DXF من AutoCAD أو من أي محوّل، ثم افتحه هنا.`,
+      `ملفات DWG غير مدعومة في هذه النسخة${detail ? ` (الإصدار: ${detail})` : ''}. صدّر الرسم بصيغة DXF من AutoCAD أو من أي محوّل، ثم افتحه هنا.`,
     DWG_ENGINE: () => 'تعذّر تحميل محرك قراءة DWG. أعد تحميل التطبيق وحاول مجددًا، أو افتح الرسم بصيغة DXF.',
     TOO_LARGE: () => 'الملف أكبر من الحد المسموح (150 ميجابايت).',
     PARSE: () => 'تعذّر تحليل الملف، وقد يكون تالفًا.',
@@ -119,6 +121,7 @@ const en: Strings = {
   stageBuild: 'Preparing drawing…',
   dropHint: 'Drop a DXF file here, or press “Open file”',
   formatsHint: 'Opens DXF and DWG files, fully offline.',
+  formatsHintDxfOnly: 'Opens DXF files, fully offline.',
   online: 'Online',
   offline: 'Offline — the app runs locally',
   dismiss: 'Dismiss',

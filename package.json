@@ -21,7 +21,8 @@
     "cap:add": "cap add android",
     "cap:sync": "vite build && cap sync android",
     "cap:open": "cap open android",
-    "cap:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug"
+    "cap:apk": "npm run cap:sync && cd android && ./gradlew assembleDebug",
+    "build:nodwg": "tsc --noEmit && vite build --mode nodwg --outDir dist-nodwg"
   },
   "dependencies": {
     "@capacitor/android": "^7.0.0",

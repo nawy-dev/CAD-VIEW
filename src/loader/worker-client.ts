@@ -4,7 +4,6 @@
  */
 import { LoadError } from '../core/dxf/errors';
 import type { Drawing, StageListener } from './open-core';
-import { vendorUrlFromPage } from './dwg-engine';
 import type { WorkerRequest, WorkerResponse } from './worker-protocol';
 
 export const WORKER_IDLE_MS = 30_000;
@@ -113,7 +112,7 @@ function runOnce(name: string, data: ArrayBuffer, onStage?: StageListener): Prom
     try {
       // ننسخ لأن نقل المخزن الأصلي سيفرغه، والتطبيق يحتاجه لحفظ الملف في الأخيرة
       const copy = data.slice(0);
-      const request: WorkerRequest = { id, name, bytes: new Uint8Array(copy), vendorUrl: vendorUrlFromPage() };
+      const request: WorkerRequest = { id, name, bytes: new Uint8Array(copy), baseUrl: document.baseURI };
       w.postMessage(request, [copy]);
     } catch (error) {
       // فشل إرسال الرسالة (ذاكرة/استنساخ): خطأ في الملف لا في دعم الـ Worker

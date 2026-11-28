@@ -17,6 +17,7 @@ import type { Theme } from './core/render/aci';
 import type { RecentEntry } from './core/storage/recent';
 import { formatBytes, formatCount } from './i18n/format';
 import { isLang, strings, type Lang } from './i18n/strings';
+import { dwgEnabled } from './loader/dwg/registry';
 import { openDrawingFile, toErrorInfo, type Drawing, type ErrorInfo, type OpenStage } from './loader/openDrawing';
 import { readPref, writePref } from './state/prefs';
 import { recentFiles } from './state/services';
@@ -289,7 +290,11 @@ export function App() {
           ref={fileInput}
           type="file"
           hidden
-          accept=".dxf,.dwg,.DXF,.DWG,image/vnd.dxf,image/vnd.dwg,application/dxf,application/acad,application/octet-stream"
+          accept={
+            dwgEnabled()
+              ? '.dxf,.dwg,.DXF,.DWG,image/vnd.dxf,image/vnd.dwg,application/dxf,application/acad,application/octet-stream'
+              : '.dxf,.DXF,image/vnd.dxf,application/dxf,application/octet-stream'
+          }
           onChange={onPicked}
           data-testid="file-input"
         />

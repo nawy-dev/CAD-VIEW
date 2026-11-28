@@ -44,11 +44,12 @@ export type DwgConvert = (bytes: Uint8Array) => Promise<Uint8Array>;
 export async function openDrawingCore(
   name: string,
   data: ArrayBuffer,
-  convert: DwgConvert,
+  convert: DwgConvert | null,
   onStage?: StageListener,
 ): Promise<Drawing> {
   const bytes = new Uint8Array(data);
-  if (bytes.length === 0 || detectFormat(bytes) !== 'dwg') return openDrawing(name, data, onStage);
+  // بلا محوّل (نسخة DXF فقط) يمرّ DWG على المحلل فيرفضه برسالة DWG_UNSUPPORTED الواضحة
+  if (!convert || bytes.length === 0 || detectFormat(bytes) !== 'dwg') return openDrawing(name, data, onStage);
   if (data.byteLength > MAX_FILE_BYTES) {
     throw new LoadError('TOO_LARGE', 'الملف أكبر من الحد المسموح');
   }

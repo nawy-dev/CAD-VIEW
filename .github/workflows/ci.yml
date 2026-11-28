@@ -11,5 +11,14 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npx vite build
+      - run: npx vite build --mode nodwg --outDir dist-nodwg
+      - name: نسخة nodwg خالية من محرك DWG
+        run: |
+          set -e
+          test ! -d dist-nodwg/vendor
+          if grep -rIli "libredwg" dist-nodwg; then echo "أثر لـ LibreDWG في nodwg"; exit 1; fi
+          if grep -rIl "\.wasm" dist-nodwg; then echo "ملف wasm في nodwg"; exit 1; fi
+          if grep -q "DWG" dist-nodwg/index.html; then echo "ذكر DWG في index.html"; exit 1; fi
+          grep -q 'const VENDOR = \[\]' dist-nodwg/sw.js
       - run: npx playwright install --with-deps chromium
       - run: npm run e2e

@@ -1,5 +1,6 @@
 import { LoadError } from '../core/dxf/errors';
-import { convertDwgToDxf, isInThreadForced } from './dwg';
+import { convertDwgToDxf } from './dwg';
+import { dwgEnabled } from './dwg/registry';
 import {
   openDrawing,
   openDrawingCore,
@@ -23,7 +24,7 @@ export async function openDrawingFile(name: string, data: ArrayBuffer, onStage?:
   if (data.byteLength > MAX_FILE_BYTES) {
     throw new LoadError('TOO_LARGE', 'الملف أكبر من الحد المسموح');
   }
-  if (!isInThreadForced() && workerAvailable()) {
+  if (workerAvailable()) {
     try {
       return await openInWorker(name, data, onStage);
     } catch (error) {
@@ -31,7 +32,7 @@ export async function openDrawingFile(name: string, data: ArrayBuffer, onStage?:
       // الـ Worker لا يعمل هنا (متصفح قديم): نكمل على الخيط الرئيسي
     }
   }
-  return openDrawingCore(name, data, convertDwgToDxf, onStage);
+  return openDrawingCore(name, data, dwgEnabled() ? convertDwgToDxf : null, onStage);
 }
 
 /** يحوّل أي خطأ إلى معلومات تعرضها الواجهة برسالة مترجمة. */
