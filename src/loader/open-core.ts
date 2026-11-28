@@ -14,6 +14,10 @@ export interface Drawing {
   scene: Scene;
 }
 
+/** مراحل فتح الملف التي تُعرض للمستخدم. */
+export type OpenStage = 'convert' | 'parse' | 'build';
+export type StageListener = (stage: OpenStage) => void;
+
 export type ErrorCode = LoadErrorCode | 'READ' | 'UNKNOWN';
 
 export interface ErrorInfo {
@@ -22,11 +26,13 @@ export interface ErrorInfo {
 }
 
 /** يفتح محتوى DXF ويعيد رسمًا جاهزًا للعرض، أو يرمي LoadError. */
-export function openDrawing(name: string, data: ArrayBuffer): Drawing {
+export function openDrawing(name: string, data: ArrayBuffer, onStage?: StageListener): Drawing {
   if (data.byteLength > MAX_FILE_BYTES) {
     throw new LoadError('TOO_LARGE', 'الملف أكبر من الحد المسموح');
   }
+  onStage?.('parse');
   const doc = loadDocument(data);
+  onStage?.('build');
   const drawing: Drawing = { name, size: data.byteLength, scene: buildScene(doc) };
   if (doc.version !== undefined) drawing.version = doc.version;
   return drawing;
@@ -35,19 +41,25 @@ export function openDrawing(name: string, data: ArrayBuffer): Drawing {
 export type DwgConvert = (bytes: Uint8Array) => Promise<Uint8Array>;
 
 /** يفتح أي ملف مدعوم: DXF مباشرة، وDWG بعد تحويله إلى DXF بالمحوّل الممرَّر. */
-export async function openDrawingCore(name: string, data: ArrayBuffer, convert: DwgConvert): Promise<Drawing> {
+export async function openDrawingCore(
+  name: string,
+  data: ArrayBuffer,
+  convert: DwgConvert,
+  onStage?: StageListener,
+): Promise<Drawing> {
   const bytes = new Uint8Array(data);
-  if (bytes.length === 0 || detectFormat(bytes) !== 'dwg') return openDrawing(name, data);
+  if (bytes.length === 0 || detectFormat(bytes) !== 'dwg') return openDrawing(name, data, onStage);
   if (data.byteLength > MAX_FILE_BYTES) {
     throw new LoadError('TOO_LARGE', 'الملف أكبر من الحد المسموح');
   }
   const version = dwgVersionLabel(bytes);
+  onStage?.('convert');
   const dxf = await convert(bytes);
   const converted =
     dxf.byteOffset === 0 && dxf.byteLength === dxf.buffer.byteLength
       ? (dxf.buffer as ArrayBuffer)
       : (dxf.buffer.slice(dxf.byteOffset, dxf.byteOffset + dxf.byteLength) as ArrayBuffer);
-  const drawing = openDrawing(name, converted);
+  const drawing = openDrawing(name, converted, onStage);
   return { ...drawing, size: data.byteLength, version };
 }
 

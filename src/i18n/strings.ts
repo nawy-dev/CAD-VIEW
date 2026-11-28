@@ -27,6 +27,9 @@ export interface Strings {
   toDark: string;
   switchLang: string;
   loading: string;
+  stageConvert: string;
+  stageParse: string;
+  stageBuild: string;
   dropHint: string;
   formatsHint: string;
   online: string;
@@ -62,6 +65,9 @@ const ar: Strings = {
   toDark: 'الوضع الداكن',
   switchLang: 'English',
   loading: 'جارٍ فتح الملف…',
+  stageConvert: 'جارٍ تحويل DWG…',
+  stageParse: 'جارٍ قراءة الملف…',
+  stageBuild: 'جارٍ تجهيز الرسم…',
   dropHint: 'اسحب ملف DXF وأفلته هنا، أو اضغط «فتح ملف»',
   formatsHint: 'يدعم ملفات DXF وDWG ويعمل بدون إنترنت.',
   online: 'متصل',
@@ -108,6 +114,9 @@ const en: Strings = {
   toDark: 'Dark mode',
   switchLang: 'العربية',
   loading: 'Opening file…',
+  stageConvert: 'Converting DWG…',
+  stageParse: 'Reading file…',
+  stageBuild: 'Preparing drawing…',
   dropHint: 'Drop a DXF file here, or press “Open file”',
   formatsHint: 'Opens DXF and DWG files, fully offline.',
   online: 'Online',

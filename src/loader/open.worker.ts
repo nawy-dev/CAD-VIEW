@@ -22,7 +22,7 @@ self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
       bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
         ? (bytes.buffer as ArrayBuffer)
         : (bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
-    const drawing = await openDrawingCore(name, data, (b) => active.convert(b));
+    const drawing = await openDrawingCore(name, data, (b) => active.convert(b), (stage) => post({ id, stage }));
     post({ id, ok: true, drawing }, sceneBuffers(drawing.scene));
   } catch (error) {
     if (error instanceof LoadError) {

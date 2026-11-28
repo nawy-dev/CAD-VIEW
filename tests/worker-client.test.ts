@@ -41,7 +41,9 @@ function installFakeWorker(behaviour: () => Behaviour) {
           return;
         }
         const data = req.bytes.buffer.slice(req.bytes.byteOffset, req.bytes.byteOffset + req.bytes.byteLength) as ArrayBuffer;
-        const drawing = await openDrawingCore(req.name, data, async () => new Uint8Array());
+        const drawing = await openDrawingCore(req.name, data, async () => new Uint8Array(), (stage) =>
+          this.onmessage?.({ data: { id: req.id, stage } } as MessageEvent<WorkerResponse>),
+        );
         this.onmessage?.({ data: { id: req.id, ok: true, drawing } } as MessageEvent<WorkerResponse>);
       });
     }
@@ -119,6 +121,23 @@ describe('فتح الملفات عبر Worker', () => {
     mode = 'ok';
     const d = await openDrawingFile('c.dxf', sample());
     expect(d.scene.stats.primitives).toBe(1);
+  });
+
+  it('مراحل الفتح تصل إلى المستدعي بالترتيب قبل النتيجة', async () => {
+    installFakeWorker(() => 'ok');
+    const stages: string[] = [];
+    await openDrawingFile('a.dxf', sample(), (s) => stages.push(s));
+    expect(stages).toEqual(['parse', 'build']);
+  });
+
+  it('DWG يمرّ بمرحلة التحويل أولًا', async () => {
+    const stages: string[] = [];
+    const dwg = new Uint8Array(100);
+    dwg.set([...'AC1027'].map((c) => c.charCodeAt(0)));
+    await openDrawingCore('a.dwg', dwg.buffer, async () => new TextEncoder().encode(dxf(section('ENTITIES', line('0', 0, 0, 1, 1)))), (s) =>
+      stages.push(s),
+    );
+    expect(stages).toEqual(['convert', 'parse', 'build']);
   });
 
   it('sceneBuffers تجمع مخازن المسارات والتعبئات بلا تكرار', async () => {

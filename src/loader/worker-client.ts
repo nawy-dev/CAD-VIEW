@@ -3,7 +3,7 @@
  * يُنهى الـ Worker بعد فترة خمول فتتحرر ذاكرة WASM وبيانات التحليل.
  */
 import { LoadError } from '../core/dxf/errors';
-import type { Drawing } from './open-core';
+import type { Drawing, StageListener } from './open-core';
 import { vendorUrlFromPage } from './dwg-engine';
 import type { WorkerRequest, WorkerResponse } from './worker-protocol';
 
@@ -14,6 +14,7 @@ export const OPEN_TIMEOUT_MS = 300_000;
 interface Pending {
   resolve(d: Drawing): void;
   reject(e: unknown): void;
+  onStage?: StageListener | undefined;
   timer: ReturnType<typeof setTimeout>;
 }
 
@@ -51,6 +52,10 @@ function getWorker(): Worker {
     const msg = event.data;
     const entry = pending.get(msg.id);
     if (!entry) return;
+    if ('stage' in msg) {
+      entry.onStage?.(msg.stage);
+      return;
+    }
     pending.delete(msg.id);
     clearTimeout(entry.timer);
     everWorked = true;
@@ -79,7 +84,7 @@ export class WorkerStartError extends Error {
   }
 }
 
-function runOnce(name: string, data: ArrayBuffer): Promise<Drawing> {
+function runOnce(name: string, data: ArrayBuffer, onStage?: StageListener): Promise<Drawing> {
   return new Promise<Drawing>((resolve, reject) => {
     const id = nextId++;
     clearTimeout(idleTimer);
@@ -87,7 +92,7 @@ function runOnce(name: string, data: ArrayBuffer): Promise<Drawing> {
       () => failAll(new LoadError('PARSE', 'استغرق فتح الملف وقتًا أطول من اللازم', 'timeout')),
       OPEN_TIMEOUT_MS,
     );
-    pending.set(id, { resolve, reject, timer });
+    pending.set(id, { resolve, reject, onStage, timer });
     const fail = (error: unknown) => {
       pending.delete(id);
       clearTimeout(timer);
@@ -121,9 +126,9 @@ function runOnce(name: string, data: ArrayBuffer): Promise<Drawing> {
  * يفتح الملف في الـ Worker. يرمي WorkerStartError إن لم يعمل الـ Worker أصلًا في هذا المتصفح
  * (فيعيد المستدعي المحاولة على الخيط الرئيسي)، ويرمي LoadError لأخطاء الملف نفسه.
  */
-export async function openInWorker(name: string, data: ArrayBuffer): Promise<Drawing> {
+export async function openInWorker(name: string, data: ArrayBuffer, onStage?: StageListener): Promise<Drawing> {
   try {
-    return await runOnce(name, data);
+    return await runOnce(name, data, onStage);
   } catch (error) {
     if (error instanceof WorkerStartError) {
       if (!everWorked) {

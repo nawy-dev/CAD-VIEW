@@ -1,5 +1,5 @@
 import type { LoadErrorCode } from '../core/dxf/errors';
-import type { Drawing } from './open-core';
+import type { Drawing, OpenStage } from './open-core';
 
 /** طلب فتح ملف (DXF أو DWG) داخل الـ Worker. */
 export interface WorkerRequest {
@@ -11,5 +11,6 @@ export interface WorkerRequest {
 }
 
 export type WorkerResponse =
+  | { id: number; stage: OpenStage }
   | { id: number; ok: true; drawing: Drawing }
   | { id: number; ok: false; code: LoadErrorCode | 'UNKNOWN'; message: string; detail?: string };

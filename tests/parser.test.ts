@@ -296,7 +296,7 @@ describe('parseDxf: الكتل و INSERT', () => {
     });
   });
 
-  it('يتخطى ATTRIB و SEQEND التابعة لـ INSERT', () => {
+  it('يحوّل ATTRIB التابعة لـ INSERT إلى نصوص ويتخطى SEQEND', () => {
     const doc = parseDxf(
       entitiesDoc(
         rec('INSERT', [2, 'B'], [66, 1]),
@@ -306,7 +306,7 @@ describe('parseDxf: الكتل و INSERT', () => {
         line('0', 0, 0, 1, 1),
       ),
     );
-    expect(doc.entities.map((e) => e.type)).toEqual(['INSERT', 'LINE']);
+    expect(doc.entities.map((e) => e.type)).toEqual(['INSERT', 'TEXT', 'TEXT', 'LINE']);
     expect(doc.unsupported).toEqual({});
   });
 

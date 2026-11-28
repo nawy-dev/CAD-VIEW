@@ -17,7 +17,7 @@ import type { Theme } from './core/render/aci';
 import type { RecentEntry } from './core/storage/recent';
 import { formatBytes, formatCount } from './i18n/format';
 import { isLang, strings, type Lang } from './i18n/strings';
-import { openDrawingFile, toErrorInfo, type Drawing, type ErrorInfo } from './loader/openDrawing';
+import { openDrawingFile, toErrorInfo, type Drawing, type ErrorInfo, type OpenStage } from './loader/openDrawing';
 import { readPref, writePref } from './state/prefs';
 import { recentFiles } from './state/services';
 
@@ -55,6 +55,7 @@ export function App() {
   const [drawing, setDrawing] = useState<Drawing | null>(null);
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
+  const [stage, setStage] = useState<OpenStage | null>(null);
   const [error, setError] = useState<ErrorInfo | null>(null);
   const [notesDismissed, setNotesDismissed] = useState(false);
   const [panel, setPanel] = useState<Panel>(null);
@@ -98,12 +99,15 @@ export function App() {
     async (name: string, read: () => Promise<ArrayBuffer>, remember: boolean) => {
       const mine = ++token.current;
       setBusy(true);
+      setStage(null);
       setError(null);
       try {
         const data = await read();
         await nextPaint();
         if (mine !== token.current) return;
-        const next = await openDrawingFile(nameOverride.current ?? name, data);
+        const next = await openDrawingFile(nameOverride.current ?? name, data, (s) => {
+          if (mine === token.current) setStage(s);
+        });
         if (mine !== token.current) return;
         nameOverride.current = null;
         setDrawing(next);
@@ -334,7 +338,7 @@ export function App() {
         {busy && (
           <div className="loading" role="status" data-testid="loading">
             <span className="spinner" />
-            {t.loading}
+            {stage === 'convert' ? t.stageConvert : stage === 'parse' ? t.stageParse : stage === 'build' ? t.stageBuild : t.loading}
           </div>
         )}
         <Drawer

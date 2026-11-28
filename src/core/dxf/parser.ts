@@ -1,7 +1,7 @@
 import { polylinePoints, TAU, type PolylineVertex } from '../geometry/arc';
 import { edgesToLoop, filterIslandStyle, type HatchEdge } from '../geometry/hatch';
 import { LoadError } from './errors';
-import { cleanPlainText } from './text';
+import { cleanMText, cleanPlainText } from './text';
 import { tokenize, type Tokens } from './tokenizer';
 import {
   BYLAYER,
@@ -288,7 +288,11 @@ function parsePoint(t: Tokens, r: Rec): DxfEntity {
   return e;
 }
 
-function parseText(t: Tokens, r: Rec): DxfEntity {
+/**
+ * TEXT، وكذلك ATTRIB (قيمة سمة الكتلة) بنفس البنية مع فروق: المحاذاة العمودية في 74 بدل 73،
+ * والرمز 70 أعلامه (1 = سمة مخفية). الوسم (2) لا يُرسم، تُرسم القيمة (1) فقط.
+ */
+function parseText(t: Tokens, r: Rec, attrib = false): DxfEntity {
   const e: Extract<DxfEntity, { type: 'TEXT' }> = {
     type: 'TEXT',
     layer: '0',
@@ -303,7 +307,18 @@ function parseText(t: Tokens, r: Rec): DxfEntity {
     vAlign: 0,
     extrusion: newExtrusion(),
   };
+  // سمة متعددة الأسطر (R2018+): بعد 101 يأتي MTEXT مضمّن برموز لها معانٍ مختلفة؛ نأخذ نصه فقط
+  let embedded = false;
+  let embeddedText = '';
   forEachPair(t, r, (code, v) => {
+    if (attrib && code === 101) {
+      embedded = true;
+      return;
+    }
+    if (embedded) {
+      if (code === 1 || code === 3) embeddedText += v;
+      return;
+    }
     if (code === 10) e.position.x = num(v);
     else if (code === 20) e.position.y = num(v);
     else if (code === 11) e.alignPoint.x = num(v);
@@ -312,11 +327,14 @@ function parseText(t: Tokens, r: Rec): DxfEntity {
     else if (code === 41) e.widthFactor = num(v) || 1;
     else if (code === 50) e.rotation = num(v);
     else if (code === 72) e.hAlign = int(v);
-    else if (code === 73) e.vAlign = int(v);
-    else if (code === 1) e.text = cleanPlainText(v);
+    else if (code === (attrib ? 74 : 73)) e.vAlign = int(v);
+    else if (attrib && code === 70) {
+      if ((int(v) & 1) !== 0) e.invisible = true;
+    } else if (code === 1) e.text = cleanPlainText(v);
     else if (code >= 210 && code <= 230) readExtrusion(code, v, e.extrusion);
     else readCommon(code, v, e);
   });
+  if (embedded && embeddedText) e.text = cleanMText(embeddedText).replace(/\s*\n\s*/g, ' ').trim();
   // نقطة المحاذاة (11) صالحة فقط عندما تكون المحاذاة غير الافتراضية
   if (e.hAlign === 0 && e.vAlign === 0) e.alignPoint = { ...e.position };
   return e;
@@ -675,7 +693,10 @@ function parseEntities(t: Tokens, records: Rec[], unsupported: Record<string, nu
         out.push(entity);
         if (attribsFollow) {
           let j = i + 1;
-          while (j < records.length && (records[j] as Rec).type === 'ATTRIB') j++;
+          while (j < records.length && (records[j] as Rec).type === 'ATTRIB') {
+            out.push(parseText(t, records[j] as Rec, true)); // قيم السمات تظهر كنصوص
+            j++;
+          }
           if (j < records.length && (records[j] as Rec).type === 'SEQEND') j++;
           i = j - 1;
         }
